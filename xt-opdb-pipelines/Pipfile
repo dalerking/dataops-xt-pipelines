@@ -1,0 +1,30 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+numpy = "*"
+pyarrow = "*"
+sqlparams = "*"
+pydantic = {extras = ["dotenv"], version = "*"}
+aws-lambda-powertools = "*"
+epsagon = "*"
+cloudpathlib = {extras = ["s3"], version = "*"}
+pytz = "*"
+zulu = "*"
+boto3 = "*"
+atomicwrites = "*"
+pandas = "*"
+pyodbc = "*"
+pyfakefs = "*"
+
+[dev-packages]
+pytest = "*"
+moto = "*"
+pytest-freezegun = "*"
+pytest-mock = "*"
+pre-commit = "*"
+
+[requires]
+python_version = "3.10"
