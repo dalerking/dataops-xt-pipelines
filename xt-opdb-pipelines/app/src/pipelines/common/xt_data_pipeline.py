@@ -1,3 +1,4 @@
+from common.utils import logger
 from datetime import datetime
 from elasticsearch import Elasticsearch
 from enum import Enum
@@ -97,9 +98,10 @@ class XTDataPipelineColumn:
 
 
 class XTDataPipeline:
-    def __init__(self, attributes: dict, search_size: int) -> None:
+    def __init__(self, attributes: dict, local_test: bool) -> None:
         self.dataframe = {}
-        self.search_size = search_size
+        self.local_test = local_test
+        self.search_size = 5 if local_test else 10000
         self.successful = True
 
         if "api_index" in attributes:
@@ -207,9 +209,13 @@ class XTDataPipeline:
 
     def insert_row(self, cursor, api_row: dict) -> None:
         first = True
+
+        column_name_list = []
+        for column_name in self._get_columns():
+            column_name_list.append(f"[{column_name}]")
         sql = (
             f"INSERT INTO {self.db_table_name} ("
-            + ",".join(self._get_columns())
+            + ",".join(column_name_list)
             + ") VALUES ("
         )
 
@@ -230,6 +236,9 @@ class XTDataPipeline:
         if cursor is None:
             print(sql, flush=True)
         else:
+            if self.local_test:
+                logger.info(f"SQL: {sql}")
+
             cursor.execute(sql)
 
     def search(self, sort_and_query: str, timestamp, subsearch=None) -> list:
@@ -368,9 +377,11 @@ class XTDataPipeline:
             if column_value is not None:
                 new_data1 = str(datetime.fromtimestamp(int(column_value) / 1000.0))
                 column_value = re.sub("\..*", "", new_data1)
-                column_value = new_data1
+
         if column_value is None:
             return "null"
+        elif column.is_geo_point_conversion():
+            return column_value
         elif isinstance(column_value, bool):
             return "'" + str(column_value) + "'"
         elif isinstance(column_value, float):

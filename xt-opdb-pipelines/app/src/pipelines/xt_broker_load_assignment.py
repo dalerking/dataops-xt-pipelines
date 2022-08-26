@@ -1,8 +1,9 @@
+from common.utils import logger
 from src.pipelines.common.xt_data_pipeline import XTDataPipeline
 
 
 class XTBrokerLoadAssignment(XTDataPipeline):
-    def __init__(self, search_size=10000) -> None:
+    def __init__(self, local_test: bool) -> None:
         super().__init__(
             {
                 "api_index": "prod_ihta_load_broker_assignment_reporting",
@@ -16,7 +17,7 @@ class XTBrokerLoadAssignment(XTDataPipeline):
                 ],
                 "db_table_name": "XNS_reporting.dbo.XT_BrokerOS_Load_Assignment",
             },
-            search_size,
+            local_test,
         )
 
     def process(self, db_connection=None) -> bool:
@@ -28,11 +29,16 @@ class XTBrokerLoadAssignment(XTDataPipeline):
                 cursor = db_connection.cursor()
 
                 sql = f"SELECT MAX(UpdatedAt) FROM {self.db_table_name}"
+                if self.local_test:
+                    logger.info(f"SQL: {sql}")
                 cursor.execute(sql)
 
                 for row in cursor.fetchall():
                     if row[0] is not None:
                         max_updated_at_timestamp = int(row[0])
+
+                if self.local_test:
+                    logger.info(f"Max: {max_updated_at_timestamp}")
 
             for api_row in self.search("updated_at", max_updated_at_timestamp):
                 self.insert_row(cursor, api_row)

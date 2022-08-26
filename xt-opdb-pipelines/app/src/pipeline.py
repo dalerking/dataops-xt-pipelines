@@ -14,50 +14,53 @@ from src.pipelines.xt_ml_recommendations import XTMLRecommendations
 from src.pipelines.xt_product_amplitude import XTProductAmplitude
 from src.pipelines.xt_rolled_reason import XTRolledReason
 
+import asyncio, logging
 
-def set_parameters(event: dict) -> dict:
+
+def set_parameters(event: dict, local_test: bool) -> dict:
     parsed_event = Event.parse_obj(event)
 
     database_details = get_secret(parsed_event.data.databaseDetails["secretManager"])
     logger.info("Database credentials from secretsmanager loaded")
 
-    dict_settings = {
+    if local_test:
+        database_details["db_driver"] = "{ODBC Driver 17 for SQL Server}"
+
+    return {
         "database_details": database_details,
         "pipeline_name": parsed_event.data.jobDetails.pipelineName,
     }
 
-    return dict_settings
 
-
-async def run_pipeline(event, context):
+async def run_pipeline(event, context, local_test=False):
     pipeline = None
 
     try:
-        dict_settings = set_parameters(event)
+        parameters = set_parameters(event, local_test)
 
-        pipeline_name = dict_settings["pipeline_name"]
+        pipeline_name = parameters["pipeline_name"]
         logger.info(f"Process started for {pipeline_name}.")
 
         if pipeline_name == "xt-broker-driver-info":
-            pipeline = XTBrokerDriverInfo()
+            pipeline = XTBrokerDriverInfo(local_test)
         elif pipeline_name == "xt-broker-load-assignment":
-            pipeline = XTBrokerLoadAssignment()
+            pipeline = XTBrokerLoadAssignment(local_test)
         elif pipeline_name == "xt-broker-offers":
-            pipeline = XTBrokerOffers()
+            pipeline = XTBrokerOffers(local_test)
         elif pipeline_name == "xt-broker-posted-trucks":
-            pipeline = XTBrokerPostedTrucks()
+            pipeline = XTBrokerPostedTrucks(local_test)
         elif pipeline_name == "xt-ml-recommendations":
-            pipeline = XTMLRecommendations()
+            pipeline = XTMLRecommendations(local_test)
         elif pipeline_name == "xt-product-amplitude":
-            pipeline = XTProductAmplitude()
+            pipeline = XTProductAmplitude(local_test)
         elif pipeline_name == "xt-rolled-reason":
-            pipeline = XTRolledReason()
+            pipeline = XTRolledReason(local_test)
 
         if pipeline is None:
             raise USXException(f"Pipeline not supported ({pipeline_name})")
         else:
             async with database_connection(
-                **load_database_env_values(dict_settings["database_details"])
+                **load_database_env_values(parameters["database_details"], local_test)
             ) as db_connection:
                 pipeline.process(db_connection)
     except USXException as e:
@@ -71,16 +74,31 @@ async def run_pipeline(event, context):
 
 
 def test_pipelines():
-    search_size = 1
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s  %(levelname)-7s  %(message)s",
+        datefmt="%H:%M:%S",
+    )
 
-    try:
-        XTBrokerDriverInfo(search_size).process()
-        XTBrokerLoadAssignment(search_size).process()
-        XTBrokerOffers(search_size).process()
-        XTBrokerPostedTrucks(search_size).process()
-        XTMLRecommendations(search_size).process()
-        XTProductAmplitude(search_size).process()
-        XTRolledReason(search_size).process()
-    except USXException as exception:
-        print()
-        print(f"  {exception.get_message()}")
+    pipeline_name = "xt-broker-driver-info"
+    # pipeline_name = "xt-broker-load-assignment"
+    # pipeline_name = "xt-broker-offers"
+    # pipeline_name = "xt-broker-posted-trucks"
+    # pipeline_name = "xt-ml-recommendations"
+    # pipeline_name = "xt-product-amplitude"
+    # pipeline_name = "xt-rolled-reason"
+
+    event = {
+        "data": {
+            "databaseDetails": {
+                "dbDriver": "libtdsodbc.so",
+                "secretManager": "xt_database_creds",
+            },
+            "jobDetails": {
+                "pipelineName": pipeline_name,
+                "secretManager": "xt-elasticsearch-creds",
+            },
+        }
+    }
+
+    asyncio.run(run_pipeline(event, None, True))

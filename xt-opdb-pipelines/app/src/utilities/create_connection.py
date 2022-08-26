@@ -18,10 +18,16 @@ async def database_connection(
     username: str,
     password: str,
     driver: str,
+    trusted_connection: bool,
 ):
     """Database connection context manager.
     Connection is disposed on exception or context leave.
     """
+
+    if trusted_connection:
+        user_connect = "Trusted_Connection=yes"
+    else:
+        user_connect = f"UID={domain}{username};PWD={password};"
 
     conn_str = (
         f"DRIVER={driver};"
@@ -30,9 +36,9 @@ async def database_connection(
         f"DATABASE={database};"
         # domain value for psa server is USXPRESS.COM\, must include \, and it's
         # empty str for read-replica server
-        f"UID={domain}{username};"
-        f"PWD={password};"
+        f"{user_connect}"
     )
+
     try:
         conn = await acquire_connection(conn_str)
     except pyodbc.Error as e:

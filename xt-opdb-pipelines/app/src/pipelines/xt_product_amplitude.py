@@ -1,3 +1,4 @@
+from common.utils import logger
 from src.pipelines.common.xt_data_pipeline import (
     XTDataPipeline,
     XTDataPipelineConversion,
@@ -5,7 +6,7 @@ from src.pipelines.common.xt_data_pipeline import (
 
 
 class XTProductAmplitude(XTDataPipeline):
-    def __init__(self, search_size=10000) -> None:
+    def __init__(self, local_test: bool) -> None:
         super().__init__(
             {
                 "api_index": "prod_ihea_amplitude_analytics_index",
@@ -573,7 +574,7 @@ class XTProductAmplitude(XTDataPipeline):
                 ],
                 "db_table_name": "XNS_reporting.dbo.XT_Product_Amplitude",
             },
-            search_size,
+            local_test,
         )
 
     def process(self, db_connection=None) -> bool:
@@ -585,11 +586,16 @@ class XTProductAmplitude(XTDataPipeline):
                 cursor = db_connection.cursor()
 
                 sql = f"SELECT MAX(entity_timestamp_ms) FROM {self.db_table_name}"
+                if self.local_test:
+                    logger.info(f"SQL: {sql}")
                 cursor.execute(sql)
 
                 for row in cursor.fetchall():
                     if row[0] is not None:
                         max_entity_timestamp_ms = int(row[0])
+
+                if self.local_test:
+                    logger.info(f"Max: {max_entity_timestamp_ms}")
 
             for api_row in self.search(
                 "meta.entity_timestamp_ms", max_entity_timestamp_ms

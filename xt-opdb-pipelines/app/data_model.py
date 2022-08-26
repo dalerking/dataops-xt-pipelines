@@ -10,12 +10,5 @@ class Data(BaseModel):
     databaseDetails: dict[str, str]
 
 
-class Metadata(BaseModel):
-    startDate: str
-    endDate: str
-
-
 class Event(BaseModel):
-    method: str
     data: Data
-    metadata: Metadata

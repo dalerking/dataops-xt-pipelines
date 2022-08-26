@@ -1,3 +1,4 @@
+from common.utils import logger
 from src.pipelines.common.xt_data_pipeline import (
     XTDataPipeline,
     XTDataPipelineConversion,
@@ -7,7 +8,7 @@ import re
 
 
 class XTMLRecommendations(XTDataPipeline):
-    def __init__(self, search_size=10000) -> None:
+    def __init__(self, local_test: bool) -> None:
         super().__init__(
             {
                 "api_index": "prod_ihrz_recommendations",
@@ -36,11 +37,11 @@ class XTMLRecommendations(XTDataPipeline):
                         "json_path": "payload.explanation.similar_load_id",
                     },
                     {"name": "truck_id", "json_path": "payload.truck_id"},
-                    {"name": "conversion", "json_path": "payload.type"},
+                    {"name": "type", "json_path": "payload.type"},
                 ],
                 "db_table_name": "XNS_reporting.dbo.XT_ML_Recommendations",
             },
-            search_size,
+            local_test,
         )
 
     def process(self, db_connection=None) -> bool:
@@ -52,6 +53,8 @@ class XTMLRecommendations(XTDataPipeline):
                 cursor = db_connection.cursor()
 
                 sql = f"SELECT MAX(event_time) FROM {self.db_table_name}"
+                if self.local_test:
+                    logger.info(f"SQL: {sql}")
                 cursor.execute(sql)
 
                 for row in cursor.fetchall():
@@ -66,6 +69,9 @@ class XTMLRecommendations(XTDataPipeline):
                             ".999999+00:00",
                             max_db_event_time_timestamp_1.replace(" ", "T"),
                         )
+
+                if self.local_test:
+                    logger.info(f"Max: {max_db_event_time_timestamp}")
 
             for api_row in self.search("meta.event_time", max_db_event_time_timestamp):
                 self.insert_row(cursor, api_row)

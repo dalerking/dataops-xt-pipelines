@@ -1,3 +1,4 @@
+from common.utils import logger
 from datetime import datetime
 from src.pipelines.common.xt_data_pipeline import (
     XTDataPipeline,
@@ -8,7 +9,7 @@ import re
 
 
 class XTBrokerDriverInfo(XTDataPipeline):
-    def __init__(self, search_size=10000) -> None:
+    def __init__(self, local_test: bool) -> None:
         super().__init__(
             {
                 "api_index": "prod_ihta_load_update_reporting",
@@ -30,7 +31,7 @@ class XTBrokerDriverInfo(XTDataPipeline):
                 ],
                 "db_table_name": "XNS_reporting.dbo.XT_BrokerOS_DriverInfo",
             },
-            search_size,
+            local_test,
         )
 
     def process(self, db_connection=None) -> bool:
@@ -42,6 +43,8 @@ class XTBrokerDriverInfo(XTDataPipeline):
                 cursor = db_connection.cursor()
 
                 sql = f"SELECT MAX(updated_at) FROM {self.db_table_name}"
+                if self.local_test:
+                    logger.info(f"SQL: {sql}")
                 cursor.execute(sql)
 
                 for row in cursor.fetchall():
@@ -65,6 +68,9 @@ class XTBrokerDriverInfo(XTDataPipeline):
                                 * 1000
                             )
                         )
+
+                if self.local_test:
+                    logger.info(f"Max: {max_db_updated_at_timestamp}")
 
             for api_row in self.search("updated_at", max_db_updated_at_timestamp):
                 self.insert_row(cursor, api_row)

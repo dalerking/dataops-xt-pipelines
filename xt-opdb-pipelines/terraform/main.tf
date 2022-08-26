@@ -19,17 +19,14 @@ module "eventbridge_rule" {
     "lambda-target": {
       "arn": "arn:aws:lambda:us-east-1:648462982672:function:data_xt_opdb_pipelines_api",
       "input": {
-        "sqlApi": {
-          "data": {
-            "databaseDetails": {
-              "dbDriver": "/usr/lib/x86_64-linux-gnu/odbc/libtdsodbc.so",
-              "secretManager": "xt_database_creds"
-            }
-            "jobDetails": {
-              "pipelineName": each.key,
-              "secretManager": "xt-elasticsearch-creds"
-            }
-          }
+        "data": {
+          "databaseDetails": {
+            "secretManager": "xt_database_creds"
+          },
+          "jobDetails": {
+            "pipelineName": each.key,
+            "secretManager": "xt-elasticsearch-creds"
+          },
         }
       }
     }

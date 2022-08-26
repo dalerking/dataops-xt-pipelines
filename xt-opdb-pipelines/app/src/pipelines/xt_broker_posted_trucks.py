@@ -1,3 +1,4 @@
+from common.utils import logger
 from datetime import datetime
 from src.pipelines.common.xt_data_pipeline import (
     XTDataPipeline,
@@ -8,7 +9,7 @@ import re
 
 
 class XTBrokerPostedTrucks(XTDataPipeline):
-    def __init__(self, search_size=10000) -> None:
+    def __init__(self, local_test: bool) -> None:
         super().__init__(
             {
                 "api_index": "prod_ihra_postedtruck_broker_reporting",
@@ -51,12 +52,12 @@ class XTBrokerPostedTrucks(XTDataPipeline):
                         "name": "posted_at",
                         "conversion": XTDataPipelineConversion.TimeinMs,
                     },
-                    {"name": "conversion"},
+                    {"name": "type"},
                     {"name": "user_id"},
                 ],
                 "db_table_name": "XNS_reporting.dbo.XT_BrokerOS_PostedTruck",
             },
-            search_size,
+            local_test,
         )
 
     def process(self, db_connection=None) -> bool:
@@ -68,6 +69,8 @@ class XTBrokerPostedTrucks(XTDataPipeline):
                 cursor = db_connection.cursor()
 
                 sql = f"SELECT MAX(posted_at) FROM {self.db_table_name}"
+                if self.local_test:
+                    logger.info(f"SQL: {sql}")
                 cursor.execute(sql)
 
                 for row in cursor.fetchall():
@@ -91,6 +94,9 @@ class XTBrokerPostedTrucks(XTDataPipeline):
                                 * 1000
                             )
                         )
+
+                if self.local_test:
+                    logger.info(f"Max: {max_db_posted_at_timestamp}")
 
             for api_row in self.search("posted_at", max_db_posted_at_timestamp):
                 self.insert_row(cursor, api_row)
